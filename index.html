@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Universal Zip Media Browser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;1,300&family=DM+Mono:wght@300;400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<!-- JSZip: reads ZIP file in browser memory, zero extraction to disk -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080a0f; --bg2:#0d1018; --bg3:#12151e;
+  --surface:#181c27; --surface2:#1f2435;
+  --border:rgba(255,255,255,0.07); --border2:rgba(255,255,255,0.13);
+  --accent:#c8a96e; --accent2:#e8c98e;
+  --accent-glow:rgba(200,169,110,0.15);
+  --text:#e8e4de; --text2:#9a9590; --text3:#5a5650;
+  --red:#e05c5c; --r:12px; --rl:20px;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden}
+
+/* noise */
+body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:9999;opacity:0.35}
+.ambient{position:fixed;top:-180px;left:50%;transform:translateX(-50%);width:900px;height:400px;background:radial-gradient(ellipse,rgba(200,169,110,0.07) 0%,transparent 70%);pointer-events:none;z-index:0}
+
+/* ── HEADER ── */
+header{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);background:rgba(8,10,15,0.9);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:12px clamp(16px,4vw,48px);min-height:64px;gap:12px;flex-wrap:wrap;}
+.logo{font-weight:800;font-size:1.25rem;letter-spacing:0.28em;color:var(--accent);text-transform:uppercase}
+.logo small{display:block;color:var(--text3);font-weight:400;font-size:0.62rem;letter-spacing:0.18em;margin-top:-4px}
+.hpills{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font-family:'DM Mono',monospace;font-size:0.64rem;color:var(--text3);background:var(--surface);border:1px solid var(--border);padding:4px 11px;border-radius:999px;white-space:nowrap}
+.pill b{color:var(--accent);font-weight:400}
+
+/* ── WELCOME ── */
+#welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 64px);padding:40px 20px;text-align:center;position:relative;z-index:1}
+.wlc-icon{font-size:4rem;margin-bottom:24px;animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.wlc-title{font-size:clamp(2rem,6vw,3.5rem);font-weight:800;letter-spacing:-0.03em;color:var(--text);line-height:1.1;margin-bottom:10px}
+.wlc-title span{color:var(--accent)}
+.wlc-sub{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1.1rem;color:var(--text3);margin-bottom:40px;padding: 0 10px;}
+.open-btn{position:relative;overflow:hidden;background:var(--accent);color:#080a0f;border:none;border-radius:var(--r);padding:17px 44px;font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;letter-spacing:0.08em;cursor:pointer;transition:all 0.25s;box-shadow:0 0 40px rgba(200,169,110,0.25)}
+.open-btn:hover{background:var(--accent2);box-shadow:0 0 60px rgba(200,169,110,0.4);transform:translateY(-2px)}
+.open-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.15),transparent)}
+.open-hint{margin-top:18px;font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--text3);line-height:1.9}
+.open-hint b{color:var(--accent)}
+
+/* Privacy Note */
+.privacy-note{margin-top:24px;font-family:'Syne',sans-serif;font-size:0.85rem;color:var(--text2);background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:14px 20px;max-width:480px;line-height:1.6;text-align:left;}
+.privacy-note b{color:var(--accent);}
+.privacy-note-icon{font-size:1.1rem;margin-right:6px;vertical-align:middle;}
+
+/* HOW IT WORKS */
+.how-title{margin-top:48px;font-family:'DM Mono',monospace;font-size:0.6rem;letter-spacing:0.2em;color:var(--text3);text-transform:uppercase;margin-bottom:16px}
+.steps{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.step{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;max-width:175px;text-align:left;flex: 1 1 140px;}
+.step-num{font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--accent);letter-spacing:0.12em;margin-bottom:8px}
+.step-text{font-size:0.77rem;color:var(--text2);line-height:1.55}
+
+/* ── LOADING OVERLAY ── */
+#loadingOverlay{display:none;position:fixed;inset:0;background:rgba(8,10,15,0.92);backdrop-filter:blur(8px);z-index:500;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+#loadingOverlay.visible{display:flex}
+.spinner{width:44px;height:44px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.75s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-label{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--text3);letter-spacing:0.1em}
+.load-bar-wrap{width:280px;max-width: 80vw;height:3px;background:var(--surface2);border-radius:999px;overflow:hidden}
+.load-bar{height:100%;background:var(--accent);border-radius:999px;width:0%;transition:width 0.3s}
+
+/* ── MAIN APP ── */
+#app{display:none;position:relative;z-index:1}
+
+/* topbar */
+.topbar{padding:20px clamp(16px,4vw,48px) 0;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.search-wrap{flex:1;min-width:180px;position:relative}
+.search-wrap svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--text3);pointer-events:none}
+#searchInput{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:11px 14px 11px 40px;color:var(--text);font-family:'Syne',sans-serif;font-size:0.87rem;outline:none;transition:border-color 0.2s,box-shadow 0.2s}
+#searchInput::placeholder{color:var(--text3)}
+#searchInput:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+.reopen-btn{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:11px 18px;color:var(--text2);font-family:'Syne',sans-serif;font-size:0.78rem;cursor:pointer;white-space:nowrap;transition:all 0.18s}
+.reopen-btn:hover{border-color:var(--border2);color:var(--text)}
+
+/* layout */
+.layout{display:grid;grid-template-columns:260px 1fr;min-height:calc(100vh - 130px);padding-top:20px}
+
+/* sidebar */
+.sidebar{border-right:1px solid var(--border);padding:8px 0 24px;position:sticky;top:64px;height:calc(100vh - 64px);overflow-y:auto;background:var(--bg2);scrollbar-width:thin;scrollbar-color:var(--border2) transparent;display:flex;flex-direction:column}
+.sb-label{font-family:'DM Mono',monospace;font-size:0.58rem;letter-spacing:0.2em;color:var(--text3);text-transform:uppercase;padding:16px 20px 10px}
+.folder-item{display:flex;align-items:center;gap:10px;padding:12px 20px;cursor:pointer;border-left:2px solid transparent;transition:all 0.15s}
+.folder-item:hover{background:var(--surface)}
+.folder-item.active{background:var(--surface);border-left-color:var(--accent)}
+.folder-item.active .fi-name{color:var(--text)}
+.folder-item.active .fi-icon{color:var(--accent)}
+.fi-icon{font-size:0.95rem;color:var(--text3);transition:color 0.15s}
+.fi-name{font-size:0.85rem;color:var(--text2);font-weight:600;flex:1;transition:color 0.15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fi-cnt{font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:999px;border:1px solid var(--border)}
+.sb-div{height:1px;background:var(--border);margin:14px 20px}
+.pb-section{padding:0 16px}
+.mode-btn{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-family:'Syne',sans-serif;font-size:0.78rem;cursor:pointer;margin-bottom:7px;transition:all 0.15s;text-align:left}
+.mode-btn:hover{border-color:var(--border2);color:var(--text)}
+.mode-btn.active{background:var(--accent-glow);border-color:var(--accent);color:var(--accent)}
+
+/* mobile bar */
+.mob-bar{display:none;padding:12px clamp(16px,4vw,48px);gap:8px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.mob-folder{flex:1;min-width:70px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:9px 10px;color:var(--text2);font-family:'Syne',sans-serif;font-size:0.75rem;cursor:pointer;text-align:center;transition:all 0.15s;white-space:nowrap;}
+.mob-folder.active{background:var(--accent-glow);border-color:var(--accent);color:var(--accent)}
+
+/* content */
+.content{padding:0 clamp(16px,4vw,48px) 48px;display:flex;flex-direction:column;gap:28px}
+
+/* player */
+.player-wrap{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;display:none;flex-direction:column;box-shadow:0 32px 80px rgba(0,0,0,0.5);margin-top:20px; scroll-margin-top: 90px;}
+.player-wrap.visible{display:flex}
+.player-head{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.p-tag{font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--accent);background:var(--accent-glow);border:1px solid rgba(200,169,110,0.22);padding:3px 10px;border-radius:999px;white-space:nowrap}
+.p-title{font-size:0.87rem;color:var(--text);font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#mainVideo{width:100%;max-height:70vh;background:#000;display:block}
+.player-ctrls{padding:14px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;}
+.c-btn{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px 16px;color:var(--text2);font-family:'Syne',sans-serif;font-size:0.77rem;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:6px; flex: 1 1 auto; justify-content:center;}
+.c-btn:hover{border-color:var(--border2);color:var(--text)}
+.c-btn.danger:hover{border-color:var(--red);color:var(--red)}
+.np-info{font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--text3);margin-left:auto;white-space:nowrap; text-align:center;}
+
+/* extracting indicator */
+.extracting{display:none;align-items:center;gap:10px;padding:14px 20px;border-top:1px solid var(--border);font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--text3)}
+.extracting.show{display:flex}
+.mini-spin{width:14px;height:14px;border:1.5px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0}
+
+/* folder blocks */
+.folder-block{display:flex;flex-direction:column;gap:14px}
+.fb-header{display:flex;align-items:center;gap:12px}
+.fb-title{font-family:'DM Mono',monospace;font-size:0.62rem;letter-spacing:0.2em;color:var(--text3);text-transform:uppercase;white-space:nowrap}
+.fb-line{flex:1;height:1px;background:var(--border)}
+.fb-cnt{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--text3);white-space:nowrap}
+
+/* video grid */
+.video-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:11px}
+.vcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;cursor:pointer;transition:all 0.2s;animation:fadeUp 0.3s ease both}
+.vcard:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,0.4)}
+.vcard.playing{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow)}
+.vcard.loading-vid{border-color:rgba(200,169,110,0.4);opacity:0.7; scroll-margin-top: 90px;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.vthumb{width:100%;aspect-ratio:16/9;background:var(--bg3);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.vthumb-icon{font-size:1.6rem;opacity:0.22}
+.vplay-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.18s}
+.vcard:hover .vplay-overlay,.vcard.playing .vplay-overlay{opacity:1}
+.vplay-circle{width:38px;height:38px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.9rem;color:#080a0f}
+.vinfo{padding:9px 12px}
+.vname{font-size:0.72rem;color:var(--text2);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4}
+.vcard.playing .vname{color:var(--accent)}
+.vext{font-family:'DM Mono',monospace;font-size:0.57rem;color:var(--text3);margin-top:2px;text-transform:uppercase}
+
+/* empty state */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:160px;color:var(--text3);font-family:'DM Mono',monospace;font-size:0.74rem}
+.empty-icon{font-size:2.2rem;opacity:0.22}
+
+/* toast */
+#toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:11px 20px;font-size:0.78rem;color:var(--text2);box-shadow:0 8px 32px rgba(0,0,0,0.4);z-index:9998;transform:translateY(80px);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none;max-width:320px}
+#toast.show{transform:translateY(0);opacity:1}
+
+::-webkit-scrollbar{width:4px; height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:999px}
+#zipInput{display:none}
+
+/* ── RESPONSIVE MOBILE OPTIMIZATIONS ── */
+@media(max-width:992px){
+  .layout{display:flex;flex-direction:column;}
+  .sidebar{
+    position:relative;top:0;height:auto;
+    flex-direction:row;overflow-x:auto;
+    padding:12px clamp(16px,4vw,48px);border-right:none;
+    border-bottom:1px solid var(--border);
+    align-items:center;
+  }
+  .folder-item {display:none;}
+  .sb-label:first-child {display:none;} 
+  
+  .sb-label {padding: 0 10px 0 0; margin: 0; white-space:nowrap;}
+  .sb-div {min-width:1px;height:24px;margin:0 16px;background:var(--border);}
+  .pb-section {display:flex;flex-direction:row;padding:0;gap:8px;}
+  .mode-btn {margin-bottom:0;white-space:nowrap;}
+  
+  .mob-bar{display:flex!important;}
+  .np-info { margin-left: 0; flex-basis: 100%; }
+}
+
+@media(max-width:480px){
+  .video-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+}
+</style>
+</head>
+<body>
+<div class="ambient"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">UNIVERSAL<small>ZIP MEDIA BROWSER</small></div>
+  <div class="hpills" id="hPills">
+    <div class="pill">Total: <b id="hTotal">—</b></div>
+  </div>
+</header>
+
+<!-- LOADING OVERLAY -->
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="load-label" id="loadLabel">Reading ZIP file index…</div>
+  <div class="load-bar-wrap"><div class="load-bar" id="loadBar"></div></div>
+</div>
+
+<!-- ZIP INPUT -->
+<input type="file" id="zipInput" accept=".zip"/>
+
+<!-- ══ WELCOME SCREEN ══ -->
+<div id="welcome">
+  <div class="wlc-icon">📦</div>
+  <h1 class="wlc-title">Browse Inside<br/><span>Your ZIP</span></h1>
+  <p class="wlc-sub">No extraction. No mess. Everything stays compressed.</p>
+  <button class="open-btn" onclick="document.getElementById('zipInput').click()">
+    📦 &nbsp;Select Your ZIP
+  </button>
+  <p class="open-hint">
+    Select <b>your ZIP file</b> — videos are read directly from memory.<br/>
+    Zero files extracted to your device storage.
+  </p>
+  
+  <div class="privacy-note">
+    <span class="privacy-note-icon">🔒</span>
+    <b>Privacy First:</b> Your files are processed completely on your device. Your data is <b>never</b> sent to any server or stored anywhere online.
+  </div>
+
+  <div class="how-title">How it works</div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">STEP 01</div>
+      <div class="step-text">Tap "Select Your ZIP" and choose a ZIP file containing videos</div>
+    </div>
+    <div class="step">
+      <div class="step-num">STEP 02</div>
+      <div class="step-text">JSZip reads the file list in memory — instant!</div>
+    </div>
+    <div class="step">
+      <div class="step-num">STEP 03</div>
+      <div class="step-text">Click any video to play. Only that video loads in RAM.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAIN APP ══ -->
+<div id="app">
+  <div class="topbar">
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="searchInput" placeholder="Search videos by name…" oninput="filterVideos()"/>
+    </div>
+    <button class="reopen-btn" onclick="document.getElementById('zipInput').click()">📦 Change ZIP</button>
+  </div>
+
+  <!-- mobile folder tabs (populated dynamically) -->
+  <div class="mob-bar" id="mobFolderTabs">
+    <button class="mob-folder active" id="mob-all" onclick="showFolder('all')">🎬 All</button>
+  </div>
+
+  <div class="layout">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sb-label">Library</div>
+      
+      <!-- Folders populated dynamically -->
+      <div id="sidebarFolders">
+        <div class="folder-item active" onclick="showFolder('all')" id="sb-all">
+          <span class="fi-icon">🎬</span><span class="fi-name">All Videos</span><span class="fi-cnt" id="cnt-all">—</span>
+        </div>
+      </div>
+
+      <div class="sb-div"></div>
+      <div class="sb-label">Playback Mode</div>
+      <div class="pb-section">
+        <button class="mode-btn active" onclick="setMode('single')" id="mode-single"><span>▶</span> Play Single</button>
+        <button class="mode-btn" onclick="setMode('loop')" id="mode-loop"><span>🔁</span> Loop Video</button>
+        <button class="mode-btn" onclick="setMode('continuous')" id="mode-continuous"><span>⏭</span> Continuous</button>
+        <button class="mode-btn" onclick="setMode('shuffle')" id="mode-shuffle"><span>🔀</span> Shuffle Play</button>
+      </div>
+
+      <div class="sb-div"></div>
+      <div class="sb-label">Quick Play</div>
+      <!-- Quick Play buttons populated dynamically -->
+      <div class="pb-section" id="quickPlayBtns">
+        <button class="mode-btn" onclick="playAll('all')"><span>🎬</span> Play All</button>
+      </div>
+    </aside>
+
+    <!-- CONTENT -->
+    <div class="content">
+      <!-- PLAYER -->
+      <div class="player-wrap" id="playerWrap">
+        <div class="player-head">
+          <span class="p-tag" id="pTag">—</span>
+          <span class="p-title" id="pTitle">No video selected</span>
+        </div>
+        <video id="mainVideo" controls preload="auto" playsinline></video>
+        <div class="extracting" id="extractingBar">
+          <div class="mini-spin"></div>
+          <span id="extractLabel">Extracting video from ZIP…</span>
+        </div>
+        <div class="player-ctrls">
+          <button class="c-btn" onclick="prevVideo()">⏮ Prev</button>
+          <button class="c-btn" onclick="nextVideo()">Next ⏭</button>
+          <button class="c-btn" onclick="toggleFS()">⛶ Fullscreen</button>
+          <button class="c-btn danger" onclick="closePlayer()">✕ Close</button>
+          <span class="np-info" id="npInfo">— / —</span>
+        </div>
+      </div>
+
+      <!-- VIDEO SECTIONS -->
+      <div id="videoSections"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────
+const VIDEO_EXTS = new Set(['mp4','webm','mkv','avi','mov','m4v','3gp','flv','wmv','ts','ogv','mpg','mpeg']);
+
+// ── STATE ─────────────────────────────────────────
+let library   = {};        // { folder: [{name, path, zipEntry}] }
+let zipObj    = null;      // JSZip instance
+let blobCache = {};        // path → objectURL (lazy cache)
+let playlist  = [];
+let currentIndex = -1;
+let playMode  = 'single';
+let activeFolder = 'all';
+
+// Helper to escape strings for HTML
+function escapeHTML(str) {
+  return str.replace(/[&<>'"]/g, tag => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+  }[tag]));
+}
+
+// Helper to create safe ID from folder name
+function makeID(name) {
+  return name.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+// ── ZIP INPUT ─────────────────────────────────────
+document.getElementById('zipInput').addEventListener('change', async function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  this.value = '';
+  await loadZip(file);
+});
+
+// ── LOAD ZIP ──────────────────────────────────────
+async function loadZip(file) {
+  showLoading(true, 'Reading ZIP structure…', 0);
+  try {
+    zipObj = await JSZip.loadAsync(file, {
+      onProgress: (meta) => {
+        const pct = Math.round(meta.percent);
+        setLoadBar(pct);
+        setLoadLabel(`Reading ZIP… ${pct}%`);
+      }
+    });
+
+    // Reset
+    library = {};
+    blobCache = {};
+    playlist = [];
+    currentIndex = -1;
+    closePlayer(true);
+
+    // Parse file listing
+    setLoadLabel('Scanning video files…');
+    setLoadBar(100);
+
+    zipObj.forEach((relativePath, entry) => {
+      if (entry.dir) return;
+      const parts = relativePath.split('/').filter(Boolean);
+      if (parts.length < 2) return;                      // skip root-level files
+      const folder = parts[parts.length - 2];            // immediate parent folder
+      const name   = parts[parts.length - 1];
+      const ext    = name.split('.').pop().toLowerCase();
+      if (!VIDEO_EXTS.has(ext)) return;
+
+      if (!library[folder]) library[folder] = [];
+      library[folder].push({ name, path: relativePath, zipEntry: entry, ext });
+    });
+
+    // Sort each folder
+    for (const f in library) {
+      library[f].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    }
+
+    renderUI(); // Dynamically build the UI based on discovered folders
+    
+    showLoading(false);
+    showApp(true);
+    renderSections();
+    toast('✅ ' + getTotalCount() + ' videos loaded from ZIP');
+  } catch(err) {
+    showLoading(false);
+    toast('❌ Could not read ZIP: ' + err.message);
+    console.error(err);
+  }
+}
+
+// ── GET VIDEO BLOB (lazy) ─────────────────────────
+async function getBlobURL(vid) {
+  if (blobCache[vid.path]) return blobCache[vid.path];
+  const blob = await vid.zipEntry.async('blob');
+  const url = URL.createObjectURL(blob);
+  blobCache[vid.path] = url;
+  return url;
+}
+
+// ── COUNTS ────────────────────────────────────────
+function getTotalCount() {
+  return Object.values(library).reduce((s, a) => s + a.length, 0);
+}
+
+// ── BUILD DYNAMIC UI ──────────────────────────────
+function renderUI() {
+  const folders = Object.keys(library).sort();
+  const total = getTotalCount();
+  
+  // 1. Reset Top Pills
+  const hPills = document.getElementById('hPills');
+  hPills.innerHTML = `<div class="pill">Total: <b id="hTotal">${total}</b></div>`;
+
+  // 2. Reset Sidebar Library
+  const sbFolders = document.getElementById('sidebarFolders');
+  sbFolders.innerHTML = `
+    <div class="folder-item active" onclick="showFolder('all')" id="sb-all">
+      <span class="fi-icon">🎬</span><span class="fi-name">All Videos</span><span class="fi-cnt" id="cnt-all">${total}</span>
+    </div>
+  `;
+
+  // 3. Reset Mobile Tabs
+  const mobTabs = document.getElementById('mobFolderTabs');
+  mobTabs.innerHTML = `<button class="mob-folder active" id="mob-all" onclick="showFolder('all')">🎬 All</button>`;
+
+  // 4. Reset Quick Play
+  const qpBtns = document.getElementById('quickPlayBtns');
+  qpBtns.innerHTML = `<button class="mode-btn" onclick="playAll('all')"><span>🎬</span> Play All</button>`;
+
+  // Populate dynamic folders
+  folders.forEach(f => {
+    const count = library[f].length;
+    const fSafe = escapeHTML(f);
+    const fID = makeID(f);
+    
+    // Header Pills (Prepend so total is at the end)
+    hPills.insertAdjacentHTML('afterbegin', `<div class="pill">${fSafe}: <b>${count}</b></div>`);
+
+    // Sidebar
+    sbFolders.innerHTML += `
+      <div class="folder-item" onclick="showFolder('${fSafe}')" id="sb-${fID}">
+        <span class="fi-icon">📂</span><span class="fi-name">${fSafe}</span><span class="fi-cnt">${count}</span>
+      </div>
+    `;
+
+    // Mobile Tabs
+    mobTabs.innerHTML += `
+      <button class="mob-folder" id="mob-${fID}" onclick="showFolder('${fSafe}')">📂 ${fSafe}</button>
+    `;
+
+    // Quick Play
+    qpBtns.innerHTML += `
+      <button class="mode-btn" onclick="playAll('${fSafe}')"><span>▶</span> Play ${fSafe}</button>
+    `;
+  });
+}
+
+// ── SHOW/HIDE ─────────────────────────────────────
+function showApp(show) {
+  document.getElementById('welcome').style.display = show ? 'none' : 'flex';
+  document.getElementById('app').style.display     = show ? 'block' : 'none';
+}
+function showLoading(show, label = '', pct = 0) {
+  const el = document.getElementById('loadingOverlay');
+  el.classList.toggle('visible', show);
+  if (show) { setLoadLabel(label); setLoadBar(pct); }
+}
+function setLoadLabel(t) { document.getElementById('loadLabel').textContent = t; }
+function setLoadBar(pct) { document.getElementById('loadBar').style.width = pct + '%'; }
+
+// ── FOLDER NAV ────────────────────────────────────
+function showFolder(folder) {
+  activeFolder = folder;
+  const folderID = makeID(folder);
+
+  // Remove active from all
+  document.querySelectorAll('.folder-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.mob-folder').forEach(el => el.classList.remove('active'));
+
+  // Add active to selected
+  const sbEl = document.getElementById('sb-' + folderID);
+  if (sbEl) sbEl.classList.add('active');
+
+  const mobEl = document.getElementById('mob-' + folderID);
+  if (mobEl) mobEl.classList.add('active');
+
+  renderSections(document.getElementById('searchInput').value);
+}
+
+// ── SEARCH ────────────────────────────────────────
+function filterVideos() {
+  renderSections(document.getElementById('searchInput').value);
+}
+
+// ── RENDER ────────────────────────────────────────
+function renderSections(filter = '') {
+  const container = document.getElementById('videoSections');
+  container.innerHTML = '';
+
+  const keys = activeFolder === 'all'
+    ? Object.keys(library)
+    : (library[activeFolder] ? [activeFolder] : []);
+
+  let anyVisible = false;
+
+  keys.forEach(folder => {
+    let videos = library[folder];
+    if (filter) videos = videos.filter(v => v.name.toLowerCase().includes(filter.toLowerCase()));
+    if (!videos.length) return;
+    anyVisible = true;
+
+    const block = document.createElement('div');
+    block.className = 'folder-block';
+    block.innerHTML = `
+      <div class="fb-header">
+        <span class="fb-title">📂 ${escapeHTML(folder)}</span>
+        <div class="fb-line"></div>
+        <span class="fb-cnt">${videos.length} videos</span>
+      </div>`;
+
+    const grid = document.createElement('div');
+    grid.className = 'video-grid';
+
+    videos.forEach((vid, i) => {
+      const card = document.createElement('div');
+      card.className = 'vcard';
+      card.dataset.path = vid.path;
+      card.style.animationDelay = Math.min(i * 0.02, 0.5) + 's';
+      card.innerHTML = `
+        <div class="vthumb">
+          <span class="vthumb-icon">🎞</span>
+          <div class="vplay-overlay"><div class="vplay-circle">▶</div></div>
+        </div>
+        <div class="vinfo">
+          <div class="vname" title="${escapeHTML(vid.name)}">${escapeHTML(vid.name).replace(/\.[^.]+$/, '')}</div>
+          <div class="vext">${vid.ext}</div>
+        </div>`;
+      card.onclick = () => playVideo(vid, videos);
+      grid.appendChild(card);
+    });
+
+    block.appendChild(grid);
+    container.appendChild(block);
+  });
+
+  if (!anyVisible) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🎬</div>
+        <div>${filter ? 'No videos match your search.' : 'No videos found.'}</div>
+      </div>`;
+  }
+}
+
+// ── PLAY VIDEO ────────────────────────────────────
+async function playVideo(vid, folderVideos) {
+  playlist = (playMode === 'shuffle') ? shuffle([...folderVideos]) : folderVideos;
+  currentIndex = playlist.findIndex(v => v.path === vid.path);
+  if (currentIndex < 0) currentIndex = 0;
+  await loadPlayer(playlist[currentIndex]);
+}
+
+async function loadPlayer(vid) {
+  const wrap  = document.getElementById('playerWrap');
+  const video = document.getElementById('mainVideo');
+  const exBar = document.getElementById('extractingBar');
+  const exLbl = document.getElementById('extractLabel');
+
+  wrap.classList.add('visible');
+  document.getElementById('pTitle').textContent = vid.name;
+  document.getElementById('pTag').textContent   = vid.path.split('/').slice(-2,-1)[0] || '—';
+  document.getElementById('npInfo').textContent  = (currentIndex+1) + ' / ' + playlist.length;
+
+  // highlight card
+  document.querySelectorAll('.vcard').forEach(c => c.classList.remove('playing','loading-vid'));
+  const activeCard = document.querySelector(`.vcard[data-path="${CSS.escape(vid.path)}"]`);
+  if (activeCard) { activeCard.classList.add('loading-vid'); activeCard.scrollIntoView({behavior:'smooth',block:'start'}); }
+
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // show extracting indicator
+  exLbl.textContent = 'Extracting from ZIP… ' + vid.name;
+  exBar.classList.add('show');
+
+  try {
+    const url = await getBlobURL(vid);
+    video.src  = url;
+    video.loop = (playMode === 'loop');
+    video.play().catch(() => {});
+    exBar.classList.remove('show');
+
+    if (activeCard) {
+      activeCard.classList.remove('loading-vid');
+      activeCard.classList.add('playing');
+    }
+    toast('▶ ' + vid.name.replace(/\.[^.]+$/, ''));
+  } catch(err) {
+    exBar.classList.remove('show');
+    toast('❌ Could not load video: ' + err.message);
+    if (activeCard) activeCard.classList.remove('loading-vid');
+  }
+}
+
+function prevVideo() {
+  if (!playlist.length) return;
+  currentIndex = (currentIndex - 1 + playlist.length) % playlist.length;
+  loadPlayer(playlist[currentIndex]);
+}
+function nextVideo() {
+  if (!playlist.length) return;
+  currentIndex = playMode === 'shuffle'
+    ? Math.floor(Math.random() * playlist.length)
+    : (currentIndex + 1) % playlist.length;
+  loadPlayer(playlist[currentIndex]);
+}
+function closePlayer(silent = false) {
+  const v = document.getElementById('mainVideo');
+  v.pause(); v.src = '';
+  document.getElementById('playerWrap').classList.remove('visible');
+  document.getElementById('extractingBar').classList.remove('show');
+  document.querySelectorAll('.vcard').forEach(c => c.classList.remove('playing','loading-vid'));
+  playlist = []; currentIndex = -1;
+  if (!silent) toast('Player closed');
+}
+
+document.getElementById('mainVideo').addEventListener('ended', () => {
+  if (playMode === 'continuous' || playMode === 'shuffle') nextVideo();
+});
+
+function toggleFS() {
+  const v = document.getElementById('mainVideo');
+  (v.requestFullscreen||v.webkitRequestFullscreen||v.webkitEnterFullscreen||(() => {})).call(v);
+}
+
+// ── PLAY ALL ──────────────────────────────────────
+function playAll(folder) {
+  let videos = folder === 'all'
+    ? Object.values(library).flat()
+    : (library[folder] || []);
+  if (!videos.length) { toast('No videos found.'); return; }
+  if (playMode === 'shuffle') videos = shuffle([...videos]);
+  playlist = videos; currentIndex = 0;
+  loadPlayer(playlist[0]);
+  showFolder(folder);
+}
+
+// ── MODE ──────────────────────────────────────────
+function setMode(mode) {
+  playMode = mode;
+  ['single','loop','continuous','shuffle'].forEach(m =>
+    document.getElementById('mode-'+m)?.classList.toggle('active', m === mode));
+  document.getElementById('mainVideo').loop = (mode === 'loop');
+  toast('Mode → ' + mode.charAt(0).toUpperCase() + mode.slice(1));
+}
+
+// ── SHUFFLE ───────────────────────────────────────
+function shuffle(arr) {
+  for (let i = arr.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+
+// ── TOAST ─────────────────────────────────────────
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ── KEYBOARD ──────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowRight') nextVideo();
+  if (e.key === 'ArrowLeft')  prevVideo();
+  if (e.key === 'Escape')     closePlayer();
+  if (e.key === 'f'||e.key === 'F') toggleFS();
+});
+</script>
+</body>
+</html>
