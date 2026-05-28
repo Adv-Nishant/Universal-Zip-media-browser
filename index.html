@@ -115,7 +115,9 @@ header{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);background:r
 .player-head{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
 .p-tag{font-family:'DM Mono',monospace;font-size:0.63rem;color:var(--accent);background:var(--accent-glow);border:1px solid rgba(200,169,110,0.22);padding:3px 10px;border-radius:999px;white-space:nowrap}
 .p-title{font-size:0.87rem;color:var(--text);font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#mainVideo{width:100%;max-height:70vh;background:#000;display:block}
+#mainVideo,#mainAudio,#mainImage{width:100%;max-height:70vh;background:#000;display:none}
+#mainAudio{max-height:none}
+#mainImage{object-fit:contain}
 .player-ctrls{padding:14px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;}
 .c-btn{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px 16px;color:var(--text2);font-family:'Syne',sans-serif;font-size:0.77rem;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:6px; flex: 1 1 auto; justify-content:center;}
 .c-btn:hover{border-color:var(--border2);color:var(--text)}
@@ -221,7 +223,7 @@ header{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);background:r
     📦 &nbsp;Select Your ZIP
   </button>
   <p class="open-hint">
-    Select <b>your ZIP file</b> — videos are read directly from memory.<br/>
+    Select <b>your ZIP file</b> — media is read directly from memory.<br/>
     Zero files extracted to your device storage.
   </p>
   
@@ -234,7 +236,7 @@ header{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);background:r
   <div class="steps">
     <div class="step">
       <div class="step-num">STEP 01</div>
-      <div class="step-text">Tap "Select Your ZIP" and choose a ZIP file containing videos</div>
+      <div class="step-text">Tap "Select Your ZIP" and choose a ZIP file containing media</div>
     </div>
     <div class="step">
       <div class="step-num">STEP 02</div>
@@ -242,7 +244,7 @@ header{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);background:r
     </div>
     <div class="step">
       <div class="step-num">STEP 03</div>
-      <div class="step-text">Click any video to play. Only that video loads in RAM.</div>
+      <div class="step-text">Click any media item to play or view. Only that file loads in RAM.</div>
     </div>
   </div>
 </div>
@@ -252,14 +254,14 @@ header{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);background:r
   <div class="topbar">
     <div class="search-wrap">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input type="text" id="searchInput" placeholder="Search videos by name…" oninput="filterVideos()"/>
+      <input type="text" id="searchInput" placeholder="Search media by name…" oninput="filterMedia()"/>
     </div>
     <button class="reopen-btn" onclick="document.getElementById('zipInput').click()">📦 Change ZIP</button>
   </div>
 
   <!-- mobile folder tabs (populated dynamically) -->
   <div class="mob-bar" id="mobFolderTabs">
-    <button class="mob-folder active" id="mob-all" onclick="showFolder('all')">🎬 All</button>
+    <button class="mob-folder active" id="mob-all" onclick="showFolder('all')">🗂️ All</button>
   </div>
 
   <div class="layout">
@@ -270,7 +272,7 @@ header{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);background:r
       <!-- Folders populated dynamically -->
       <div id="sidebarFolders">
         <div class="folder-item active" onclick="showFolder('all')" id="sb-all">
-          <span class="fi-icon">🎬</span><span class="fi-name">All Videos</span><span class="fi-cnt" id="cnt-all">—</span>
+          <span class="fi-icon">🗂️</span><span class="fi-name">All Media</span><span class="fi-cnt" id="cnt-all">—</span>
         </div>
       </div>
 
@@ -278,7 +280,7 @@ header{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);background:r
       <div class="sb-label">Playback Mode</div>
       <div class="pb-section">
         <button class="mode-btn active" onclick="setMode('single')" id="mode-single"><span>▶</span> Play Single</button>
-        <button class="mode-btn" onclick="setMode('loop')" id="mode-loop"><span>🔁</span> Loop Video</button>
+        <button class="mode-btn" onclick="setMode('loop')" id="mode-loop"><span>🔁</span> Loop Media</button>
         <button class="mode-btn" onclick="setMode('continuous')" id="mode-continuous"><span>⏭</span> Continuous</button>
         <button class="mode-btn" onclick="setMode('shuffle')" id="mode-shuffle"><span>🔀</span> Shuffle Play</button>
       </div>
@@ -287,7 +289,7 @@ header{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);background:r
       <div class="sb-label">Quick Play</div>
       <!-- Quick Play buttons populated dynamically -->
       <div class="pb-section" id="quickPlayBtns">
-        <button class="mode-btn" onclick="playAll('all')"><span>🎬</span> Play All</button>
+        <button class="mode-btn" onclick="playAll('all')"><span>▶</span> Play All</button>
       </div>
     </aside>
 
@@ -297,12 +299,14 @@ header{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);background:r
       <div class="player-wrap" id="playerWrap">
         <div class="player-head">
           <span class="p-tag" id="pTag">—</span>
-          <span class="p-title" id="pTitle">No video selected</span>
+          <span class="p-title" id="pTitle">No media selected</span>
         </div>
         <video id="mainVideo" controls preload="auto" playsinline></video>
+        <audio id="mainAudio" controls preload="auto"></audio>
+        <img id="mainImage" alt="Selected media"/>
         <div class="extracting" id="extractingBar">
           <div class="mini-spin"></div>
-          <span id="extractLabel">Extracting video from ZIP…</span>
+          <span id="extractLabel">Extracting media from ZIP…</span>
         </div>
         <div class="player-ctrls">
           <button class="c-btn" onclick="prevVideo()">⏮ Prev</button>
@@ -313,7 +317,7 @@ header{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);background:r
         </div>
       </div>
 
-      <!-- VIDEO SECTIONS -->
+      <!-- MEDIA SECTIONS -->
       <div id="videoSections"></div>
     </div>
   </div>
@@ -324,9 +328,16 @@ header{position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);background:r
 <script>
 // ── CONFIG ────────────────────────────────────────
 const VIDEO_EXTS = new Set(['mp4','webm','mkv','avi','mov','m4v','3gp','flv','wmv','ts','ogv','mpg','mpeg']);
+const IMAGE_EXTS = new Set(['jpg','jpeg','png','gif','webp','bmp','svg','tiff','tif','ico','avif']);
+const AUDIO_EXTS = new Set(['mp3','wav','ogg','opus','m4a','aac','flac','wma','aiff','aif','oga']);
+const MEDIA_META = {
+  video: { icon: '🎞', label: 'video', action: '▶' },
+  audio: { icon: '🎵', label: 'audio', action: '▶' },
+  image: { icon: '🖼️', label: 'image', action: '👁' }
+};
 
 // ── STATE ─────────────────────────────────────────
-let library   = {};        // { folder: [{name, path, zipEntry}] }
+let library   = {};        // { folder: [{name, path, zipEntry, type}] }
 let zipObj    = null;      // JSZip instance
 let blobCache = {};        // path → objectURL (lazy cache)
 let playlist  = [];
@@ -344,6 +355,13 @@ function escapeHTML(str) {
 // Helper to create safe ID from folder name
 function makeID(name) {
   return name.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function getMediaType(ext) {
+  if (VIDEO_EXTS.has(ext)) return 'video';
+  if (AUDIO_EXTS.has(ext)) return 'audio';
+  if (IMAGE_EXTS.has(ext)) return 'image';
+  return null;
 }
 
 // ── ZIP INPUT ─────────────────────────────────────
@@ -374,7 +392,7 @@ async function loadZip(file) {
     closePlayer(true);
 
     // Parse file listing
-    setLoadLabel('Scanning video files…');
+    setLoadLabel('Scanning media files…');
     setLoadBar(100);
 
     zipObj.forEach((relativePath, entry) => {
@@ -384,10 +402,11 @@ async function loadZip(file) {
       const folder = parts[parts.length - 2];            // immediate parent folder
       const name   = parts[parts.length - 1];
       const ext    = name.split('.').pop().toLowerCase();
-      if (!VIDEO_EXTS.has(ext)) return;
+      const type   = getMediaType(ext);
+      if (!type) return;
 
       if (!library[folder]) library[folder] = [];
-      library[folder].push({ name, path: relativePath, zipEntry: entry, ext });
+      library[folder].push({ name, path: relativePath, zipEntry: entry, ext, type });
     });
 
     // Sort each folder
@@ -400,7 +419,7 @@ async function loadZip(file) {
     showLoading(false);
     showApp(true);
     renderSections();
-    toast('✅ ' + getTotalCount() + ' videos loaded from ZIP');
+    toast('✅ ' + getTotalCount() + ' media items loaded from ZIP');
   } catch(err) {
     showLoading(false);
     toast('❌ Could not read ZIP: ' + err.message);
@@ -435,17 +454,17 @@ function renderUI() {
   const sbFolders = document.getElementById('sidebarFolders');
   sbFolders.innerHTML = `
     <div class="folder-item active" onclick="showFolder('all')" id="sb-all">
-      <span class="fi-icon">🎬</span><span class="fi-name">All Videos</span><span class="fi-cnt" id="cnt-all">${total}</span>
+      <span class="fi-icon">🗂️</span><span class="fi-name">All Media</span><span class="fi-cnt" id="cnt-all">${total}</span>
     </div>
   `;
 
   // 3. Reset Mobile Tabs
   const mobTabs = document.getElementById('mobFolderTabs');
-  mobTabs.innerHTML = `<button class="mob-folder active" id="mob-all" onclick="showFolder('all')">🎬 All</button>`;
+  mobTabs.innerHTML = `<button class="mob-folder active" id="mob-all" onclick="showFolder('all')">🗂️ All</button>`;
 
   // 4. Reset Quick Play
   const qpBtns = document.getElementById('quickPlayBtns');
-  qpBtns.innerHTML = `<button class="mode-btn" onclick="playAll('all')"><span>🎬</span> Play All</button>`;
+  qpBtns.innerHTML = `<button class="mode-btn" onclick="playAll('all')"><span>▶</span> Play All</button>`;
 
   // Populate dynamic folders
   folders.forEach(f => {
@@ -508,7 +527,7 @@ function showFolder(folder) {
 }
 
 // ── SEARCH ────────────────────────────────────────
-function filterVideos() {
+function filterMedia() {
   renderSections(document.getElementById('searchInput').value);
 }
 
@@ -524,9 +543,9 @@ function renderSections(filter = '') {
   let anyVisible = false;
 
   keys.forEach(folder => {
-    let videos = library[folder];
-    if (filter) videos = videos.filter(v => v.name.toLowerCase().includes(filter.toLowerCase()));
-    if (!videos.length) return;
+    let items = library[folder];
+    if (filter) items = items.filter(v => v.name.toLowerCase().includes(filter.toLowerCase()));
+    if (!items.length) return;
     anyVisible = true;
 
     const block = document.createElement('div');
@@ -535,27 +554,28 @@ function renderSections(filter = '') {
       <div class="fb-header">
         <span class="fb-title">📂 ${escapeHTML(folder)}</span>
         <div class="fb-line"></div>
-        <span class="fb-cnt">${videos.length} videos</span>
+        <span class="fb-cnt">${items.length} items</span>
       </div>`;
 
     const grid = document.createElement('div');
     grid.className = 'video-grid';
 
-    videos.forEach((vid, i) => {
+    items.forEach((item, i) => {
+      const meta = MEDIA_META[item.type] || MEDIA_META.video;
       const card = document.createElement('div');
       card.className = 'vcard';
-      card.dataset.path = vid.path;
+      card.dataset.path = item.path;
       card.style.animationDelay = Math.min(i * 0.02, 0.5) + 's';
       card.innerHTML = `
         <div class="vthumb">
-          <span class="vthumb-icon">🎞</span>
-          <div class="vplay-overlay"><div class="vplay-circle">▶</div></div>
+          <span class="vthumb-icon">${meta.icon}</span>
+          <div class="vplay-overlay"><div class="vplay-circle">${meta.action}</div></div>
         </div>
         <div class="vinfo">
-          <div class="vname" title="${escapeHTML(vid.name)}">${escapeHTML(vid.name).replace(/\.[^.]+$/, '')}</div>
-          <div class="vext">${vid.ext}</div>
+          <div class="vname" title="${escapeHTML(item.name)}">${escapeHTML(item.name).replace(/\.[^.]+$/, '')}</div>
+          <div class="vext">${item.ext} • ${meta.label}</div>
         </div>`;
-      card.onclick = () => playVideo(vid, videos);
+      card.onclick = () => playVideo(item, items);
       grid.appendChild(card);
     });
 
@@ -566,15 +586,15 @@ function renderSections(filter = '') {
   if (!anyVisible) {
     container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">🎬</div>
-        <div>${filter ? 'No videos match your search.' : 'No videos found.'}</div>
+        <div class="empty-icon">🗂️</div>
+        <div>${filter ? 'No media match your search.' : 'No media found.'}</div>
       </div>`;
   }
 }
 
-// ── PLAY VIDEO ────────────────────────────────────
-async function playVideo(vid, folderVideos) {
-  playlist = (playMode === 'shuffle') ? shuffle([...folderVideos]) : folderVideos;
+// ── PLAY MEDIA ────────────────────────────────────
+async function playVideo(vid, folderItems) {
+  playlist = (playMode === 'shuffle') ? shuffle([...folderItems]) : folderItems;
   currentIndex = playlist.findIndex(v => v.path === vid.path);
   if (currentIndex < 0) currentIndex = 0;
   await loadPlayer(playlist[currentIndex]);
@@ -583,12 +603,16 @@ async function playVideo(vid, folderVideos) {
 async function loadPlayer(vid) {
   const wrap  = document.getElementById('playerWrap');
   const video = document.getElementById('mainVideo');
+  const audio = document.getElementById('mainAudio');
+  const image = document.getElementById('mainImage');
   const exBar = document.getElementById('extractingBar');
   const exLbl = document.getElementById('extractLabel');
+  const meta  = MEDIA_META[vid.type] || { icon: '📄', label: 'media', action: '▶' };
 
   wrap.classList.add('visible');
   document.getElementById('pTitle').textContent = vid.name;
-  document.getElementById('pTag').textContent   = vid.path.split('/').slice(-2,-1)[0] || '—';
+  const folderTag = vid.path.split('/').slice(-2,-1)[0] || '—';
+  document.getElementById('pTag').textContent   = `${folderTag} • ${meta.label}`;
   document.getElementById('npInfo').textContent  = (currentIndex+1) + ' / ' + playlist.length;
 
   // highlight card
@@ -598,25 +622,45 @@ async function loadPlayer(vid) {
 
   wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+  video.pause();
+  audio.pause();
+  video.removeAttribute('src');
+  audio.removeAttribute('src');
+  image.removeAttribute('src');
+  video.style.display = 'none';
+  audio.style.display = 'none';
+  image.style.display = 'none';
+
   // show extracting indicator
-  exLbl.textContent = 'Extracting from ZIP… ' + vid.name;
+  exLbl.textContent = `Extracting ${meta.label} from ZIP… ${vid.name}`;
   exBar.classList.add('show');
 
   try {
     const url = await getBlobURL(vid);
-    video.src  = url;
-    video.loop = (playMode === 'loop');
-    video.play().catch(() => {});
+    if (vid.type === 'audio') {
+      audio.src = url;
+      audio.loop = (playMode === 'loop');
+      audio.style.display = 'block';
+      audio.play().catch(() => {});
+    } else if (vid.type === 'image') {
+      image.src = url;
+      image.style.display = 'block';
+    } else {
+      video.src  = url;
+      video.loop = (playMode === 'loop');
+      video.style.display = 'block';
+      video.play().catch(() => {});
+    }
     exBar.classList.remove('show');
 
     if (activeCard) {
       activeCard.classList.remove('loading-vid');
       activeCard.classList.add('playing');
     }
-    toast('▶ ' + vid.name.replace(/\.[^.]+$/, ''));
+    toast(meta.icon + ' ' + vid.name.replace(/\.[^.]+$/, ''));
   } catch(err) {
     exBar.classList.remove('show');
-    toast('❌ Could not load video: ' + err.message);
+    toast('❌ Could not load media: ' + err.message);
     if (activeCard) activeCard.classList.remove('loading-vid');
   }
 }
@@ -635,7 +679,11 @@ function nextVideo() {
 }
 function closePlayer(silent = false) {
   const v = document.getElementById('mainVideo');
-  v.pause(); v.src = '';
+  const a = document.getElementById('mainAudio');
+  const i = document.getElementById('mainImage');
+  v.pause(); v.src = ''; v.style.display = 'none';
+  a.pause(); a.src = ''; a.style.display = 'none';
+  i.src = ''; i.style.display = 'none';
   document.getElementById('playerWrap').classList.remove('visible');
   document.getElementById('extractingBar').classList.remove('show');
   document.querySelectorAll('.vcard').forEach(c => c.classList.remove('playing','loading-vid'));
@@ -646,20 +694,28 @@ function closePlayer(silent = false) {
 document.getElementById('mainVideo').addEventListener('ended', () => {
   if (playMode === 'continuous' || playMode === 'shuffle') nextVideo();
 });
+document.getElementById('mainAudio').addEventListener('ended', () => {
+  if (playMode === 'continuous' || playMode === 'shuffle') nextVideo();
+});
 
 function toggleFS() {
-  const v = document.getElementById('mainVideo');
-  (v.requestFullscreen||v.webkitRequestFullscreen||v.webkitEnterFullscreen||(() => {})).call(v);
+  const video = document.getElementById('mainVideo');
+  const image = document.getElementById('mainImage');
+  const videoVisible = getComputedStyle(video).display !== 'none';
+  const imageVisible = getComputedStyle(image).display !== 'none';
+  const target = videoVisible ? video : (imageVisible ? image : null);
+  if (!target) return;
+  (target.requestFullscreen||target.webkitRequestFullscreen||target.webkitEnterFullscreen||(() => {})).call(target);
 }
 
 // ── PLAY ALL ──────────────────────────────────────
 function playAll(folder) {
-  let videos = folder === 'all'
+  let items = folder === 'all'
     ? Object.values(library).flat()
     : (library[folder] || []);
-  if (!videos.length) { toast('No videos found.'); return; }
-  if (playMode === 'shuffle') videos = shuffle([...videos]);
-  playlist = videos; currentIndex = 0;
+  if (!items.length) { toast('No media found.'); return; }
+  if (playMode === 'shuffle') items = shuffle([...items]);
+  playlist = items; currentIndex = 0;
   loadPlayer(playlist[0]);
   showFolder(folder);
 }
@@ -670,6 +726,7 @@ function setMode(mode) {
   ['single','loop','continuous','shuffle'].forEach(m =>
     document.getElementById('mode-'+m)?.classList.toggle('active', m === mode));
   document.getElementById('mainVideo').loop = (mode === 'loop');
+  document.getElementById('mainAudio').loop = (mode === 'loop');
   toast('Mode → ' + mode.charAt(0).toUpperCase() + mode.slice(1));
 }
 
