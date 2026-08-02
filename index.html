@@ -544,7 +544,7 @@ function makeID(n){ return n.replace(/[^a-zA-Z0-9_-]/g,'_'); }
 function getMediaType(ext){ if(VIDEO_EXTS.has(ext))return'video'; if(AUDIO_EXTS.has(ext))return'audio'; if(IMAGE_EXTS.has(ext))return'image'; return null; }
 function getMimeType(ext){
   const map = {
-    mp4:'video/mp4',webm:'video/webm',mov:'video/quicktime',m4v:'video/x-m4v',ogv:'video/ogg',3gp:'video/3gpp',
+    mp4:'video/mp4',webm:'video/webm',mov:'video/quicktime',m4v:'video/x-m4v',ogv:'video/ogg','3gp':'video/3gpp',
     mp3:'audio/mpeg',wav:'audio/wav',ogg:'audio/ogg',opus:'audio/opus',m4a:'audio/mp4',aac:'audio/aac',flac:'audio/flac',
     jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',webp:'image/webp',bmp:'image/bmp',svg:'image/svg+xml',avif:'image/avif'
   };
