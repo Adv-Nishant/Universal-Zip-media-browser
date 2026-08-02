@@ -536,11 +536,20 @@ let playlist     = [];
 let currentIndex = -1;
 let playMode     = 'single';
 let activeFolder = 'all';
+let thumbToken   = 0;
 
 // ── HELPERS ───────────────────────────────────────
 function escapeHTML(s){ return s.replace(/[&<>'"]/g,t=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[t])); }
 function makeID(n){ return n.replace(/[^a-zA-Z0-9_-]/g,'_'); }
 function getMediaType(ext){ if(VIDEO_EXTS.has(ext))return'video'; if(AUDIO_EXTS.has(ext))return'audio'; if(IMAGE_EXTS.has(ext))return'image'; return null; }
+function getMimeType(ext){
+  const map = {
+    mp4:'video/mp4',webm:'video/webm',mov:'video/quicktime',m4v:'video/x-m4v',ogv:'video/ogg','3gp':'video/3gpp',
+    mp3:'audio/mpeg',wav:'audio/wav',ogg:'audio/ogg',opus:'audio/opus',m4a:'audio/mp4',aac:'audio/aac',flac:'audio/flac',
+    jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',webp:'image/webp',bmp:'image/bmp',svg:'image/svg+xml',avif:'image/avif'
+  };
+  return map[ext] || 'application/octet-stream';
+}
 function cls(id,c,on){ document.getElementById(id)?.classList.toggle(c,on); }
 function isPasswordError(err){ return /password|encrypted|decryption/i.test((err&&err.message)||''); }
 
@@ -632,10 +641,12 @@ async function loadZip(file) {
       library[f].sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
     }
 
+    const currentThumbToken = ++thumbToken;
     renderUI();
     showLoading(false);
     showApp(true);
     renderSections();
+    generateVideoThumbs(Object.values(library).flat(), currentThumbToken).catch(err => console.warn('Thumbnail generation failed:', err));
     toast('✅ '+getTotalCount()+' items loaded');
   } catch(err) {
     showLoading(false);
@@ -653,7 +664,7 @@ async function getBlobURL(vid) {
   let password = zipPassword || undefined;
   while(true){
     try {
-      const blob = await entry.getData(new zip.BlobWriter(), { password });
+      const blob = await entry.getData(new zip.BlobWriter(getMimeType(vid.ext)), { password });
       const url  = URL.createObjectURL(blob);
       blobCache[vid.path] = url;
       return url;
@@ -740,6 +751,76 @@ function setFolderActive(fID) {
 // ── SEARCH ────────────────────────────────────────
 function filterMedia(){ renderSections(document.getElementById('searchInput').value); }
 
+function applyThumb(path, thumbUrl){
+  if(!thumbUrl) return;
+  const card = document.querySelector(`.mcard[data-path="${CSS.escape(path)}"]`);
+  if(!card) return;
+  const thumb = card.querySelector('.mthumb');
+  if(!thumb) return;
+  thumb.innerHTML = `<img src="${thumbUrl}" alt="" style="width:100%;height:100%;object-fit:cover;display:block"/>` + (thumb.querySelector('.mplay-ov')?.outerHTML || `<div class="mplay-ov"><div class="mplay-circle">▶</div></div>`);
+}
+
+function createVideoThumb(url){
+  return new Promise(resolve => {
+    const video = document.createElement('video');
+    let done = false;
+    const finish = (value=null) => {
+      if(done) return;
+      done = true;
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      resolve(value);
+    };
+    const capture = () => {
+      const w = video.videoWidth || 320;
+      const h = video.videoHeight || 180;
+      const maxW = 320;
+      const tw = Math.min(w, maxW);
+      const th = Math.max(1, Math.round((h / w) * tw));
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = tw;
+        canvas.height = th;
+        canvas.getContext('2d').drawImage(video, 0, 0, tw, th);
+        finish(canvas.toDataURL('image/jpeg', 0.78));
+      } catch {
+        finish(null);
+      }
+    };
+    const seekAndCapture = () => {
+      const t = Number.isFinite(video.duration) && video.duration > 0.3 ? Math.min(1, video.duration * 0.1) : 0;
+      if(t <= 0) return capture();
+      let captured = false;
+      const cap = () => { if(captured) return; captured = true; capture(); };
+      video.addEventListener('seeked', cap, { once:true });
+      try { video.currentTime = t; setTimeout(cap, 700); } catch { capture(); }
+    };
+    video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
+    video.addEventListener('loadeddata', seekAndCapture, { once:true });
+    video.addEventListener('error', () => finish(null), { once:true });
+    setTimeout(() => finish(null), 5000);
+    video.src = url;
+  });
+}
+
+async function generateVideoThumbs(items, token){
+  const videos = items.filter(item => item.type === 'video' && !item.thumbUrl);
+  for(const item of videos){
+    if(token !== thumbToken) return;
+    try {
+      const url = await getBlobURL(item);
+      const thumb = await createVideoThumb(url);
+      if(thumb){
+        item.thumbUrl = thumb;
+        applyThumb(item.path, thumb);
+      }
+    } catch {}
+  }
+}
+
 // ── RENDER SECTIONS ───────────────────────────────
 function renderSections(filter='') {
   const container = document.getElementById('videoSections');
@@ -766,9 +847,12 @@ function renderSections(filter='') {
       card.className = 'mcard';
       card.dataset.path = item.path;
       card.style.animationDelay = Math.min(i*0.015,0.4)+'s';
+      const thumbHTML = item.thumbUrl
+        ? `<img src="${item.thumbUrl}" alt="" style="width:100%;height:100%;object-fit:cover;display:block"/>`
+        : `<span class="mthumb-icon">${meta.icon}</span>`;
       card.innerHTML = `
         <div class="mthumb">
-          <span class="mthumb-icon">${meta.icon}</span>
+          ${thumbHTML}
           <div class="mplay-ov"><div class="mplay-circle">${meta.action}</div></div>
         </div>
         <div class="minfo">
